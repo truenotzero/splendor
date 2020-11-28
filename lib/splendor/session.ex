@@ -9,7 +9,7 @@ defmodule Splendor.Session do
   @impl GenServer
   def init([socket]) do
     Kernel.send(self(), :handshake)
-    {:ok, [socket: socket]}
+    {:ok, %{socket: socket, buffer: <<>>, step: :parse_header, sz: 0}}
   end
 
   @impl GenServer
@@ -26,7 +26,7 @@ defmodule Splendor.Session do
       |> push32(0xBEEF)
       |> push8(opts[:locale])
       |> finalize()
-    case :gen_tcp.send(state[:socket], packet) do
+    case :gen_tcp.send(state.socket, packet) do
       :ok ->
         Logger.info("Sent handshake")
         {:noreply, state}
@@ -34,6 +34,12 @@ defmodule Splendor.Session do
         Logger.warn("Failed to send handshake: #{inspect(reason)}")
         {:stop, :normal, state}
     end
+  end
+
+  @impl GenServer
+  def handle_info({:tcp, _socket, data}, state) do
+    Logger.info("Got some data")
+    {:noreply, %{state | buffer: state.buffer <> data}, {:continue, state.step}}
   end
 
   @impl GenServer
@@ -48,6 +54,37 @@ defmodule Splendor.Session do
     case msg do
       {:tcp, socket, _} -> :inet.setopts(socket, active: :once)
     end
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_continue(:parse_header, state) do
+    if byte_size(state.buffer) <= 2 do
+      Logger.info("Too little data to parse header")
+      {:noreply, state, {:continue, :await_data}}
+    else
+      <<sz::16-little>> <> buffer = state.buffer
+      Logger.info("Expecting body of length #{sz}")
+      {:noreply, %{state | sz: sz, buffer: buffer, step: :parse_body}, {:continue, :await_data}}
+    end
+  end
+
+  @impl GenServer
+  def handle_continue(:parse_body, state) do
+    if byte_size(state.buffer) <= state.sz do
+      Logger.info("Too little data to parse body")
+      {:noreply, state, {:continue, :await_data}}
+    else
+      sz = state.sz
+      <<data::binary-size(sz), buffer::binary>> = state.buffer
+      Logger.info("Packet: #{inspect(data)}")
+      {:noreply, %{state | sz: 2, buffer: buffer, step: :parse_header}, {:continue, :await_data}}
+    end
+  end
+
+  @impl GenServer
+  def handle_continue(:await_data, state) do
+    :inet.setopts(state.socket, active: :once)
     {:noreply, state}
   end
 end
