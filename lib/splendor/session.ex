@@ -21,7 +21,7 @@ defmodule Splendor.Session do
       |> push32(0xDEAD)
       |> push32(0xBEEF)
       |> push8(8)
-      |> send()
+      |> finalize()
       |> IO.inspect(label: "the hello packet")
     case :gen_tcp.send(state[:socket], packet) do
       :ok ->
