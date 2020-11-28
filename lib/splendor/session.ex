@@ -15,14 +15,17 @@ defmodule Splendor.Session do
   @impl GenServer
   def handle_info(:handshake, state) do
     import Splendor.PacketBuffer
+    import Splendor.Util
+
+    opts = fetch_module_config!()
+
     packet = <<>>
-      |> push16(95) # GameVer
-      |> pushstr("1") # SubVer
+      |> push16(opts[:major]) # GameVer
+      |> pushstr(opts[:minor]) # SubVer
       |> push32(0xDEAD)
       |> push32(0xBEEF)
-      |> push8(8)
+      |> push8(opts[:locale])
       |> finalize()
-      |> IO.inspect(label: "the hello packet")
     case :gen_tcp.send(state[:socket], packet) do
       :ok ->
         Logger.info("Sent handshake")
