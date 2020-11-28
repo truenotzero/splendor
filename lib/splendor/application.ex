@@ -10,6 +10,8 @@ defmodule Splendor.Application do
     children = [
       # Starts a worker by calling: Splendor.Worker.start_link(arg)
       # {Splendor.Worker, arg}
+      {Splendor.Acceptor, "foo"},
+      {DynamicSupervisor, [strategy: :one_for_one, simple: true, name: Splendor.SessionSupervisor]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
