@@ -61,4 +61,42 @@ defmodule Splendor.Iv do
       (wxyz >>> 0x1D) ||| (wxyz <<< 0x03)
     end) |> (fn u32 -> <<_::binary-size(4)>> = <<u32::little-32>> end).()
   end
+
+  @doc """
+  Create the header for a game packet
+
+  ## Examples
+    iex> Splendor.Iv.create_header(16, <<116, 114, 117, 101>>, 95)
+    <<42, 101, 58, 101>>
+  """
+  @spec create_header(non_neg_integer(), t(), non_neg_integer()) :: <<_::32>>
+  def create_header(packet_size, <<_iv_lo::little-16, iv_hi::little-16>>, version) do
+    # algorithm:
+    # 1. header.lo = iv.hi ^ ~version_major
+    # 2. header.hi = packet_size ^ header.lo
+    lo = iv_hi ^^^ ((~~~version) ^^^ 0xFF_FF)
+    hi = packet_size ^^^ lo
+    <<lo::little-16, hi::little-16>>
+  end
+
+  @doc """
+  Validate the header for a game packet
+  ## Examples
+    iex> Splendor.Iv.validate_header(<<42, 101, 58, 101>>, <<116, 114, 117, 101>>, 95)
+    {:ok, 16}
+
+    iex> Splendor.Iv.validate_header(<<44, 101, 58, 101>>, <<16, 114, 117, 101>>, 95)
+    {:error, :bad_header}
+  """
+  @spec validate_header(<<_::32>>, t, non_neg_integer()) :: {:ok, non_neg_integer()} | {:error, :bad_header}
+  def validate_header(<<header_lo::little-16, header_hi::little-16>>,
+                      <<_iv_lo::little-16, iv_hi::little-16>>,
+                      version) do
+    # algorithm: header.lo ^ iv.hi == version_major
+    unless header_lo ^^^ iv_hi == version do
+      {:error, :bad_header}
+    else
+      {:ok, header_lo ^^^ header_hi}
+    end
+  end
 end
