@@ -37,9 +37,10 @@ defmodule Splendor.CustomOFBCipher do
   Applies the custom cipher to a piece of data
   Note that encryption and decryption are the same operation, so this function does both
   """
-  @spec crypt(binary(), t()) :: binary()
+  @spec crypt(binary(), t()) :: {binary(), t()}
   def crypt(data, t) do
     # TODO: long runs
-    crypt_ofb(data, t)
+    data = crypt_ofb(data, t)
+    {data, %{t | iv: t.iv |> Splendor.Iv.next()}}
   end
 end

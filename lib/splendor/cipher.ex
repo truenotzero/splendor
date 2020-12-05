@@ -24,16 +24,20 @@ defmodule Splendor.Cipher do
   @doc """
   Encrypts a piece of outgoing data
   """
-  @spec encrypt(binary(), t()) :: binary()
+  @spec encrypt(binary(), t()) :: {binary(), t()}
   def encrypt(data, t) do
-    data |> Splendor.RollCipher.encrypt() |> Splendor.CustomOFBCipher.crypt(t.send)
+    data = data |> Splendor.RollCipher.encrypt()
+    {data, send} = Splendor.CustomOFBCipher.crypt(data, t.send)
+    {data, %{t | send: send}}
   end
 
   @doc """
   Decrypts a piece of incoming data
   """
-  @spec decrypt(binary(), t()) :: binary()
+  @spec decrypt(binary(), t()) :: {binary(), t()}
   def decrypt(data, t) do
-    data |> Splendor.CustomOFBCipher.crypt(t.recv) |> Splendor.RollCipher.decrypt()
+    {data, recv} = Splendor.CustomOFBCipher.crypt(data, t.recv)
+    data = data |> Splendor.RollCipher.decrypt()
+    {data, %{t | recv: recv}}
   end
 end
