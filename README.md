@@ -1,6 +1,7 @@
 # Splendor
 
-**TODO: Add description**
+A v95 emulator for a game we all know and love :)
+Discord link: https://discord.gg/AjjMrgf
 
 ## Installation
 
