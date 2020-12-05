@@ -1,56 +1,39 @@
 defmodule Splendor.Cipher do
-  require Logger
   @moduledoc """
-  Implements the game's network cipher
+  Ties all required cryptography components into one module for ease-of-use
   """
 
-  @block_size 16
-
-  @enforce_keys [:cipher, :iv]
+  @enforce_keys [:send, :recv]
   defstruct @enforce_keys
 
   @typedoc """
-  Network cipher object
+  Cipher object for sending and receiving encrypted data
   """
-  @type t :: %__MODULE__{cipher: :cipher.crypto_state(), iv: Splendor.Iv.iv()}
+  @type t :: %__MODULE__{send: Splendor.CustomOFBCipher.t(), recv: Splendor.CustomOFBCipher.t()}
 
-  @spec init(Splendor.Iv.t()) :: t()
-  def init(iv) do
-    import Splendor.Util
-    cfg = fetch_module_config!()
-   cipher = :crypto.crypto_dyn_iv_init(:aes_256_cbc, cfg[:key] |> expand(), true)
-   %__MODULE__{cipher: cipher, iv: iv}
+  @doc """
+  Creates a new cipher object, with the possibility to introduce an already-existing IV
+  """
+  @spec new(Splendor.Iv.t(), Splendor.Iv.t()) :: t()
+  def new(send_iv \\ Splendor.Iv.new(), recv_iv \\ Splendor.Iv.new()) do
+    send = send_iv |> Splendor.CustomOFBCipher.init()
+    recv = recv_iv |> Splendor.CustomOFBCipher.init()
+    %__MODULE__{send: send, recv: recv}
   end
 
-  defp expand(key) do
-    for <<b <- key>>, into: <<>>, do: <<b, 0, 0, 0>>
+  @doc """
+  Encrypts a piece of outgoing data
+  """
+  @spec encrypt(binary(), t()) :: binary()
+  def encrypt(data, t) do
+    data |> Splendor.RollCipher.encrypt() |> Splendor.CustomOFBCipher.crypt(t.send)
   end
 
-  defp crypt_ofb(data, block_size, t) do
-    dummy_input = <<0>> |> :binary.copy(@block_size)
-    crypt = :crypto.crypto_dyn_iv_update(t.cipher, dummy_input, t.iv |> Splendor.Iv.expand())
-      |> :binary.part({0, block_size})
-      |> :crypto.exor(data)
-    {:ok, crypt}
-  end
-
-  defp crypt_by_blocks(<<block::binary-size(@block_size), rest::binary>>, t) do
-    {:ok, crypt} = crypt_ofb(block, @block_size, t)
-    {:ok, rest} = crypt_by_blocks(rest, t)
-    {:ok, crypt <> rest}
-  end
-
-  defp crypt_by_blocks(<<data::binary>>, t) do
-    crypt_ofb(data, byte_size(data), t)
-  end
-
-  @spec crypt(iodata(), t()) :: {:ok, iodata()}
-  def crypt(data, t) do
-    crypt_by_blocks(data, t)
-  end
-
-  def test(data) do
-    c = Splendor.Iv.gen_iv() |> Splendor.Cipher.init()
-    data |> Splendor.Cipher.crypt(c)
+  @doc """
+  Decrypts a piece of incoming data
+  """
+  @spec decrypt(binary(), t()) :: binary()
+  def decrypt(data, t) do
+    data |> Splendor.CustomOFBCipher.crypt(t.recv) |> Splendor.RollCipher.decrypt()
   end
 end
