@@ -4,8 +4,6 @@ defmodule Splendor.CustomOFBCipher do
   Implements the game's custom AES-OFB cipher
   """
 
-  @block_size 16
-
   @enforce_keys [:cipher, :iv]
   defstruct @enforce_keys
 
@@ -26,22 +24,13 @@ defmodule Splendor.CustomOFBCipher do
     for <<b <- key>>, into: <<>>, do: <<b, 0, 0, 0>>
   end
 
-  defp crypt_ofb(data, block_size, t) do
-    dummy_input = <<0>> |> :binary.copy(@block_size)
-    crypt = :crypto.crypto_dyn_iv_update(t.cipher, dummy_input, t.iv |> Splendor.Iv.expand())
-      |> :binary.part({0, block_size})
+  defp crypt_ofb(data, t) do
+    sz = byte_size(data) |> div(16)
+    sz = 16 * (sz + 1)
+    dummy_input = <<0>> |> :binary.copy(sz)
+    :crypto.crypto_dyn_iv_update(t.cipher, dummy_input, t.iv |> Splendor.Iv.expand())
+      |> :binary.part({0, byte_size(data)})
       |> :crypto.exor(data)
-    {:ok, crypt}
-  end
-
-  defp crypt_by_blocks(<<block::binary-size(@block_size), rest::binary>>, t) do
-    {:ok, crypt} = crypt_ofb(block, @block_size, t)
-    {:ok, rest} = crypt_by_blocks(rest, t)
-    {:ok, crypt <> rest}
-  end
-
-  defp crypt_by_blocks(<<data::binary>>, t) do
-    crypt_ofb(data, byte_size(data), t)
   end
 
   @doc """
@@ -51,7 +40,6 @@ defmodule Splendor.CustomOFBCipher do
   @spec crypt(binary(), t()) :: binary()
   def crypt(data, t) do
     # TODO: long runs
-    {:ok, result} = crypt_by_blocks(data, t)
-    result
+    crypt_ofb(data, t)
   end
 end
