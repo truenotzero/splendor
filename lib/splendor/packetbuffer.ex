@@ -11,6 +11,11 @@ defmodule Splendor.PacketBuffer do
   @type long :: 0..0xFFFF_FFFF_FFFF_FFFF
   @type t :: binary()
 
+  @spec pushbin(t(), binary()) :: t()
+  def pushbin(buffer, b) do
+    buffer <> b
+  end
+
   @spec push8(t(), byte()) :: t()
   def push8(buffer, n) do
     buffer <> <<n::8>>

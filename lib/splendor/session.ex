@@ -1,6 +1,12 @@
 defmodule Splendor.Session do
+  @moduledoc """
+  Represents the server's connection with the client
+  """
+
   require Logger
   use GenServer, restart: :temporary
+
+  @header_size 4
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args)
@@ -19,11 +25,13 @@ defmodule Splendor.Session do
 
     opts = fetch_module_config!()
 
+    cipher = Splendor.Cipher.new(opts[:major])
+
     packet = <<>>
       |> push16(opts[:major]) # GameVer
       |> pushstr(opts[:minor]) # SubVer
-      |> push32(0xDEAD)
-      |> push32(0xBEEF)
+      |> pushbin(cipher.recv.iv)
+      |> pushbin(cipher.send.iv)
       |> push8(opts[:locale])
       |> finalize()
     case :gen_tcp.send(state.socket, packet) do
@@ -59,13 +67,19 @@ defmodule Splendor.Session do
 
   @impl GenServer
   def handle_continue(:parse_header, state) do
-    if byte_size(state.buffer) <= 2 do
+    if byte_size(state.buffer) <= @header_size do
       Logger.info("Too little data to parse header")
       {:noreply, state, {:continue, :await_data}}
     else
-      <<sz::16-little>> <> buffer = state.buffer
-      Logger.info("Expecting body of length #{sz}")
-      {:noreply, %{state | sz: sz, buffer: buffer, step: :parse_body}, {:continue, :await_data}}
+      <<header::binary-size(4), rest::binary>> = state.buffer
+      case Splendor.Cipher.validate_header(header, state.cipher) do
+        {:ok, sz} ->
+          Logger.info("Expecting body of length #{sz}")
+          {:noreply, %{state | sz: sz, buffer: rest, step: :parse_body}, {:continue, :await_data}}
+        {:error, err} ->
+          Logger.warn("Failed to validate header (#{err}), closing connection")
+          {:stop, :normal, state}
+      end
     end
   end
 
@@ -77,8 +91,10 @@ defmodule Splendor.Session do
     else
       sz = state.sz
       <<data::binary-size(sz), buffer::binary>> = state.buffer
+      data = data |> Splendor.Cipher.decrypt(state.cipher)
+      #TODO: Do something with this data (dispatch it!)
       Logger.info("Packet: #{inspect(data)}")
-      {:noreply, %{state | sz: 2, buffer: buffer, step: :parse_header}, {:continue, :await_data}}
+      {:noreply, %{state | sz: @header_size, buffer: buffer, step: :parse_header}, {:continue, :await_data}}
     end
   end
 
