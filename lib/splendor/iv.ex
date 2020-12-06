@@ -70,7 +70,7 @@ defmodule Splendor.Iv do
     <<42, 101, 58, 101>>
   """
   @spec create_header(non_neg_integer(), t(), non_neg_integer()) :: <<_::32>>
-  def create_header(packet_size, <<_iv_lo::little-16, iv_hi::little-16>>, version) do
+  def create_header(packet_size, _iv = <<_iv_lo::little-16, iv_hi::little-16>>, version) do
     # algorithm:
     # 1. header.lo = iv.hi ^ ~version_major
     # 2. header.hi = packet_size ^ header.lo
@@ -89,8 +89,8 @@ defmodule Splendor.Iv do
     {:error, :bad_header}
   """
   @spec validate_header(<<_::32>>, t, non_neg_integer()) :: {:ok, non_neg_integer()} | {:error, :bad_header}
-  def validate_header(<<header_lo::little-16, header_hi::little-16>>,
-                      <<_iv_lo::little-16, iv_hi::little-16>>,
+  def validate_header(_header = <<header_lo::little-16, header_hi::little-16>>,
+                      _iv = <<_iv_lo::little-16, iv_hi::little-16>>,
                       version) do
     # algorithm: header.lo ^ iv.hi == version_major
     unless header_lo ^^^ iv_hi == version do
