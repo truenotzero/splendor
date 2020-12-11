@@ -15,7 +15,7 @@ defmodule Splendor.Session do
   @impl GenServer
   def init([socket]) do
     Kernel.send(self(), :handshake)
-    {:ok, %{socket: socket, buffer: <<>>, step: :parse_header, sz: 0}}
+    {:ok, %{socket: socket, buffer: <<>>, step: :parse_header, sz: 0, cipher: nil}}
   end
 
   @impl GenServer
@@ -34,6 +34,9 @@ defmodule Splendor.Session do
       |> pushbin(cipher.send.iv)
       |> push8(opts[:locale])
       |> finalize()
+
+    state = %{state | cipher: cipher}
+
     case :gen_tcp.send(state.socket, packet) do
       :ok ->
         Logger.info("Sent handshake")
@@ -67,7 +70,7 @@ defmodule Splendor.Session do
 
   @impl GenServer
   def handle_continue(:parse_header, state) do
-    if byte_size(state.buffer) <= @header_size do
+    if byte_size(state.buffer) < @header_size do
       Logger.info("Too little data to parse header")
       {:noreply, state, {:continue, :await_data}}
     else
@@ -75,7 +78,7 @@ defmodule Splendor.Session do
       case Splendor.Cipher.validate_header(header, state.cipher) do
         {:ok, sz} ->
           Logger.info("Expecting body of length #{sz}")
-          {:noreply, %{state | sz: sz, buffer: rest, step: :parse_body}, {:continue, :await_data}}
+          {:noreply, %{state | sz: sz, buffer: rest, step: :parse_body}, {:continue, :parse_body}}
         {:error, err} ->
           Logger.warn("Failed to validate header (#{err}), closing connection")
           {:stop, :normal, state}
@@ -85,16 +88,16 @@ defmodule Splendor.Session do
 
   @impl GenServer
   def handle_continue(:parse_body, state) do
-    if byte_size(state.buffer) <= state.sz do
+    if byte_size(state.buffer) < state.sz do
       Logger.info("Too little data to parse body")
       {:noreply, state, {:continue, :await_data}}
     else
       sz = state.sz
       <<data::binary-size(sz), buffer::binary>> = state.buffer
-      data = data |> Splendor.Cipher.decrypt(state.cipher)
+      {data, cipher} = data |> Splendor.Cipher.decrypt(state.cipher)
       #TODO: Do something with this data (dispatch it!)
       Logger.info("Packet: #{inspect(data)}")
-      {:noreply, %{state | sz: @header_size, buffer: buffer, step: :parse_header}, {:continue, :await_data}}
+      {:noreply, %{state | cipher: cipher, sz: @header_size, buffer: buffer, step: :parse_header}, {:continue, :await_data}}
     end
   end
 
