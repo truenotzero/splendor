@@ -1,4 +1,4 @@
-defmodule Splendor.PacketBuffer do
+defmodule Splendor.Frontend.PacketBuffer do
   @moduledoc """
   A utility module for serializing and deserializing packets
 

@@ -1,4 +1,4 @@
-defmodule Splendor.Application do
+defmodule Splendor.Frontend.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -10,13 +10,13 @@ defmodule Splendor.Application do
     children = [
       # Starts a worker by calling: Splendor.Worker.start_link(arg)
       # {Splendor.Worker, arg}
-      {Splendor.Acceptor, "foo"},
-      {DynamicSupervisor, [strategy: :one_for_one, simple: true, name: Splendor.SessionSupervisor]}
+      {Splendor.Frontend.Acceptor, "foo"},
+      {DynamicSupervisor, [strategy: :one_for_one, simple: true, name: Splendor.Frontend.SessionSupervisor]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: Splendor.Supervisor]
+    opts = [strategy: :one_for_one, name: Splendor.Frontend.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end

@@ -1,4 +1,4 @@
-defmodule Splendor.Session do
+defmodule Splendor.Frontend.Session do
   @moduledoc """
   Represents the server's connection with the client
   """
@@ -20,12 +20,12 @@ defmodule Splendor.Session do
 
   @impl GenServer
   def handle_info(:handshake, state) do
-    import Splendor.PacketBuffer
-    import Splendor.Util
+    import Splendor.Frontend.PacketBuffer
+    import Splendor.Frontend.Util
 
     opts = fetch_module_config!()
 
-    cipher = Splendor.Cipher.new(opts[:major])
+    cipher = Splendor.Frontend.Cipher.new(opts[:major])
 
     packet = <<>>
       |> push16(opts[:major]) # GameVer
@@ -75,7 +75,7 @@ defmodule Splendor.Session do
       {:noreply, state, {:continue, :await_data}}
     else
       <<header::binary-size(4), rest::binary>> = state.buffer
-      case Splendor.Cipher.validate_header(header, state.cipher) do
+      case Splendor.Frontend.Cipher.validate_header(header, state.cipher) do
         {:ok, sz} ->
           Logger.info("Expecting body of length #{sz}")
           {:noreply, %{state | sz: sz, buffer: rest, step: :parse_body}, {:continue, :parse_body}}
@@ -94,7 +94,7 @@ defmodule Splendor.Session do
     else
       sz = state.sz
       <<data::binary-size(sz), buffer::binary>> = state.buffer
-      {data, cipher} = data |> Splendor.Cipher.decrypt(state.cipher)
+      {data, cipher} = data |> Splendor.Frontend.Cipher.decrypt(state.cipher)
       #TODO: Do something with this data (dispatch it!)
       Logger.info("Packet: #{inspect(data)}")
       {:noreply, %{state | cipher: cipher, sz: @header_size, buffer: buffer, step: :parse_header}, {:continue, :await_data}}

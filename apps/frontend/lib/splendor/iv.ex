@@ -1,4 +1,4 @@
-defmodule Splendor.Iv do
+defmodule Splendor.Frontend.Iv do
   @moduledoc """
   Implements the Initialization Vector and related functions for the game's custom cipher
   """

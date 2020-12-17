@@ -19,7 +19,7 @@ defmodule Frontend.MixProject do
   def application do
     [
       extra_applications: [:crypto, :logger],
-      mod: {Splendor.Application, []}
+      mod: {Splendor.Frontend.Application, []}
     ]
   end
 

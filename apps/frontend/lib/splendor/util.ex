@@ -1,4 +1,4 @@
-defmodule Splendor.Util do
+defmodule Splendor.Frontend.Util do
   @moduledoc """
   A module for useful functions
   """
