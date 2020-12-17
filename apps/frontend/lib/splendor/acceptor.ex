@@ -1,4 +1,4 @@
-defmodule Splendor.Acceptor do
+defmodule Splendor.Frontend.Acceptor do
   require Logger
   use Task, restart: :permanent
 
@@ -24,7 +24,7 @@ defmodule Splendor.Acceptor do
   def accept(name, listen_sock) do
     {:ok, socket} = :gen_tcp.accept(listen_sock)
     Logger.info("Connection accepted")
-    DynamicSupervisor.start_child(Splendor.SessionSupervisor, {Splendor.Session, [socket]}) |> spawn(socket)
+    DynamicSupervisor.start_child(Splendor.Frontend.SessionSupervisor, {Splendor.Frontend.Session, [socket]}) |> spawn(socket)
     accept(name, listen_sock)
   end
 

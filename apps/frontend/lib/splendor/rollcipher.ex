@@ -1,4 +1,4 @@
-defmodule Splendor.RollCipher do
+defmodule Splendor.Frontend.RollCipher do
   @moduledoc """
   Implements the roll cipher obfuscation
   This should always be used on the ciphertext
